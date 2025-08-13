@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Memory Card Game 2.2 (Accessibility & Keyboard)</title>
+<style>
+  :root{
+    --bg:#0f0f12;
+    --panel:#141416;
+    --muted:#9aa0a6;
+    --accent:#0a7;
+    --card-front:#292929;
+    --card-back:#0a7;
+    --glass: rgba(255,255,255,0.03);
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;padding:0;
+    background: linear-gradient(180deg,var(--bg) 0%, #0b0b0c 100%);
+    color:#fff;
+    font-family: Inter, "Segoe UI", Roboto, system-ui, -apple-system, "Helvetica Neue", Arial;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    min-height:100vh;
+    -webkit-tap-highlight-color: transparent;
+    user-select:none;
+  }
+
+  /* Top header */
+  header{
+    width:100%;
+    max-width:900px;
+    padding:18px 20px 8px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+  }
+  h1.title{margin:0;font-size:1.2rem;letter-spacing:0.6px}
+  .subtle{color:var(--muted);font-size:0.95rem}
+
+  /* Main container centered */
+  main{
+    width:100%;
+    max-width:900px;
+    padding:10px;
+    flex:1;
+    display:flex;
+    align-items:stretch;
+    justify-content:center;
+  }
+
+  /* Panels */
+  .panel {
+    width:100%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:14px;
+    padding:18px;
+    box-shadow: 0 6px 30px rgba(0,0,0,0.45);
+  }
+
+  /* MENU */
+  #menu {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:12px;
+    width:100%;
+  }
+  #menu .group{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .btn {
+    background:var(--accent); border: none; color:#012;
+    padding:10px 18px;border-radius:10px;font-weight:600;
+    cursor:pointer;min-width:120px;
+    box-shadow:0 6px 18px rgba(0,0,0,0.35);
+  }
+  .btn.secondary{background:transparent;color:#ddd;border:1px solid rgba(255,255,255,0.06)}
+  .btn.ghost{background:transparent;color:var(--muted);border:1px dashed rgba(255,255,255,0.03)}
+  label.select{
+    display:flex;flex-direction:column;align-items:center;color:var(--muted);
+    font-size:0.95rem;padding:6px 10px;border-radius:8px;
+  }
+
+  /* Game area */
+  #game-area{display:none;width:100%}
+  #hud{
+    display:flex;gap:10px;align-items:center;justify-content:space-between;
+    margin-bottom:12px;flex-wrap:wrap;
+  }
+  .hud-left, .hud-right{display:flex;gap:10px;align-items:center}
+  .stat{
+    background:var(--glass);padding:8px 12px;border-radius:10px;color:var(--muted);
+    min-width:80px;text-align:center;font-weight:600;
+  }
+  #game-board{
+    display:grid;
+    gap:10px;
+    width:100%;
+    margin:0 auto;
+    touch-action: manipulation;
+  }
+
+  /* Card styling */
+  .card{
+    position:relative;
+    height:0;padding-bottom:100%;
+    border-radius:12px;overflow:visible;
+    perspective:800px;cursor:pointer;
+  }
+  .card-inner{
+    position:absolute;inset:0;border-radius:12px;
+    transform-style:preserve-3d;
+    transition: transform 450ms cubic-bezier(.2,.9,.3,1), box-shadow 200ms;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .card.flipped .card-inner{ transform: rotateY(180deg) scale(1.02); }
+  .card-front, .card-back{
+    position:absolute;inset:0;border-radius:12px;backface-visibility:hidden;
+    display:flex;align-items:center;justify-content:center;font-size:2.4rem;
+  }
+  .card-front{
+    background:var(--card-front);
+    transform: rotateY(0deg);
+    box-shadow: inset 0 -6px 14px rgba(0,0,0,0.35);
+  }
+  .card-back{
+    transform: rotateY(180deg);
+    color:#012;
+    font-size:2.4rem;
+    font-weight:700;
+  }
+
+  /* match glow animation — FIXED so matched+flipped stays face-up */
+  @keyframes glow {
+    0%{box-shadow:0 0 0 rgba(255,255,255,0)}
+    50%{box-shadow:0 6px 22px rgba(255,255,255,0.12)}
+    100%{box-shadow:0 0 0 rgba(255,255,255,0)}
+  }
+  .card.matched .card-inner{ animation: glow 700ms ease-in-out; }
+  .card.matched.flipped .card-inner{ transform: rotateY(180deg) scale(1.03); }
+
+  /* small screens adjustments */
+  @media (max-width:700px){
+    .card-front,.card-back{font-size:2rem}
+  }
+  @media (max-width:420px){
+    .card-front,.card-back{font-size:1.6rem}
+    .btn{min-width:100px;padding:8px 12px}
+  }
+
+  /* footer copyright bottom center */
+  footer{
+    width:100%;display:flex;justify-content:center;align-items:center;padding:14px 8px 26px;
+  }
+  .copyright{
+    color:var(--muted);font-size:0.95rem;text-align:center;
+  }
+
+  /* confetti canvas (absolute overlay) */
+  #confettiCanvas{
+    position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:9999;
+  }
+
+  /* High scores list */
+  #scoresList{max-height:320px;overflow:auto;padding:6px 0}
+  .score-row{display:flex;justify-content:space-between;padding:8px;border-bottom:1px dashed rgba(255,255,255,0.03)}
+  .score-row small{color:var(--muted)}
+
+  /* tiny hint text */
+  .hint{font-size:0.9rem;color:var(--muted)}
+
+  /* reveal button */
+  #revealBtn { min-width: 90px; padding:6px 10px; border-radius:8px; font-weight:700; cursor:pointer; border:1px solid rgba(255,255,255,0.04); background:transparent; color:var(--muted); }
+  #revealBtn.disabled { opacity:0.35; cursor:not-allowed; }
+
+  /* NEW: keyboard focus ring for accessibility */
+  .card:focus-visible{
+    outline:3px solid rgba(255,255,255,0.35);
+    outline-offset:3px;
+  }
+
+  /* Optional: mismatch shake (visual feedback) */
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+  .card.shake .card-inner{ animation:shake 180ms; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1 class="title">Memory Card Game 2.2</h1>
+  <div class="subtle">Make matches — beat the time — top the leaderboard</div>
+</header>
+
+<main>
+  <div class="panel" style="width:100%">
+
+    <!-- MENU -->
+    <div id="menu">
+      <h2 style="margin:4px 0 2px">Main Menu</h2>
+      <p class="hint">Choose difficulty and optional modes, then press Start.</p>
+
+      <div class="group" style="margin-top:8px">
+        <label class="select">
+          Difficulty
+          <select id="difficultySelect" style="margin-top:6px;padding:8px;border-radius:8px;background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.04)">
+            <option value="easy">Easy — 4 x 4</option>
+            <option value="medium">Medium — 4 x 6</option>
+            <option value="hard">Hard — 6 x 6</option>
+          </select>
+        </label>
+
+        <label class="select">
+          Theme (back)
+          <select id="themeSelect" style="margin-top:6px;padding:8px;border-radius:8px;background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.04)">
+            <option value="green">Green (default)</option>
+            <option value="blue">Blue</option>
+            <option value="red">Red</option>
+            <option value="purple">Purple</option>
+            <option value="retro">Retro (pattern)</option>
+          </select>
+        </label>
+
+        <label class="select">
+          Card Set
+          <select id="cardSetSelect" style="margin-top:6px;padding:8px;border-radius:8px;background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.04)">
+            <option value="default">Fruits</option>
+            <option value="animals">Animals</option>
+            <option value="space">Space</option>
+            <option value="retro">Retro</option>
+          </select>
+        </label>
+
+        <label class="select">
+          Background
+          <select id="backgroundSelect" style="margin-top:6px;padding:8px;border-radius:8px;background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.04)">
+            <option value="dark">Dark</option>
+            <option value="ocean">Ocean</option>
+            <option value="sunset">Sunset</option>
+          </select>
+        </label>
+      </div>
+
+      <div style="width:100%;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:10px">
+        <label style="display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="timeLimitToggle" /> Time Limit Mode
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;">
+          <input type="number" id="timeLimitSeconds" value="120" style="width:84px;padding:6px;border-radius:8px;background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.04)"/> seconds
+        </label>
+
+        <label style="display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="moveLimitToggle" /> Move Limit Mode
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;">
+          <input type="number" id="moveLimitCount" value="40" style="width:84px;padding:6px;border-radius:8px;background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.04)"/> moves
+        </label>
+
+        <label style="display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="campaignToggle" /> Progressive Difficulty (Campaign)
+        </label>
+
+        <label style="display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="comboToggle" /> Bonus Combo Scoring
+        </label>
+
+        <label style="display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="revealPowerToggle" /> “Reveal All” power-up
+        </label>
+
+        <label style="display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="keepMatchedToggle" /> Keep matched cards open
+        </label>
+
+        <label style="display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="soundToggle" checked /> Sound Effects
+        </label>
+      </div>
+
+      <div class="group" style="margin-top:10px">
+        <button class="btn" id="startBtn">Start Game</button>
+        <button class="btn secondary" id="viewScoresBtn">High Scores</button>
+        <button class="btn ghost" id="creditsBtn">Credits</button>
+      </div>
+
+      <div id="scoresPanel" style="display:none;width:100%;margin-top:12px">
+        <h3 style="margin:8px 0 6px">Top Scores</h3>
+        <div id="scoresList"></div>
+        <div style="margin-top:10px" class="center">
+          <button class="btn secondary" id="closeScoresBtn">Close</button>
+        </div>
+      </div>
+
+      <div id="creditsPanel" style="display:none;margin-top:12px;text-align:center;color:var(--muted)">
+        <p style="margin:6px 0">Created by <strong>Efe Berk Ural</strong></p>
+        <p class="hint">Memory Card Game 2.2 — accessibility update</p>
+        <div style="margin-top:8px" class="center">
+          <button class="btn secondary" id="closeCreditsBtn">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- GAME AREA -->
+    <div id="game-area">
+      <div id="hud">
+        <div class="hud-left">
+          <div class="stat" id="moves">Moves: 0</div>
+          <div class="stat" id="time">Time: 0s</div>
+          <div class="stat" id="errors">Errors: 0</div>
+        </div>
+        <div class="hud-right">
+          <div class="stat" id="score">Score: 0</div>
+          <div class="stat muted" id="limitTag">Limit: —</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn secondary" id="restartBtn">Restart</button>
+            <button class="btn ghost" id="menuBtn">Back to Menu</button>
+            <button id="revealBtn" class="" title="Reveal all cards briefly">Reveal</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- NEW: role=status for announcements -->
+      <div id="message" role="status" aria-live="polite" style="margin-top:12px;text-align:center;font-size:1.05rem;min-height:28px"></div>
+
+      <!-- NEW: ARIA grid attributes will be set dynamically too -->
+      <div id="game-board" role="grid" aria-label="Memory game board"></div>
+    </div>
+
+  </div>
+</main>
+
+<canvas id="confettiCanvas"></canvas>
+
+<footer>
+  <div class="copyright">© Efe Berk Ural</div>
+</footer>
+
+<script>
+/* =========================
+   Game Data & Settings (2.2: accessibility + keyboard)
+   ========================= */
+const EMOJI_SETS = {
+  default: ['🍎','🍌','🍇','🍉','🍒','🍑','🍓','🥝','🍍','🍐','🥭','🍋','🍊','🍈','🥥','🍆','🌽','🥕'],
+  animals: ['🐶','🐱','🐼','🦊','🦁','🐮','🐷','🐵','🐨','🐔','🦄','🐸','🐧','🐢','🐙','🐝','🦋','🐞'],
+  // Space set'teki tekrarlar sadeleştirildi (erişilebilirlik için sesli betimlemede karışmasın)
+  space: Array.from(new Set(['🚀','🪐','🌟','🌙','⭐','☄️','🛰️','👽','🔭','🛸','🌌','✨','💫','🌠'])),
+  retro: ['🎮','🕹️','💾','📼','📟','📺','🖥️','🎧','📀','🔋','🧩','⚙️','🔌','🧭','🗜️','🔒','🧷','🪀']
+};
+
+const THEME_BACK_COLORS = {
+  green: '#10b981', // teal/green
+  blue: '#0ea5e9',
+  red: '#ef4444',
+  purple: '#a78bfa',
+  retro: 'linear-gradient(135deg,#ffd166,#06d6a0)' // pattern-like
+};
+
+const BACKGROUNDS = {
+  dark: 'linear-gradient(180deg,#0f0f12 0%, #0b0b0c 100%)',
+  ocean: 'linear-gradient(180deg,#021B79 0%, #0575E6 100%)',
+  sunset: 'linear-gradient(180deg,#ff7e5f 0%, #feb47b 100%)'
+};
+
+const DIFFICULTIES = {
+  easy:  {rows:4, cols:4, errorLimit:12},
+  medium:{rows:4, cols:6, errorLimit:8},
+  hard:  {rows:6, cols:6, errorLimit:5}
+};
+
+/* Game state */
+let selectedDifficulty = 'easy';
+let selectedTheme = 'green';
+let selectedCardSet = 'default';
+let selectedBackground = 'dark';
+
+let timeLimitEnabled = false;
+let timeLimitSeconds = 120;
+let moveLimitEnabled = false;
+let moveLimitCount = 40;
+let campaignEnabled = false;
+let comboEnabled = false;
+let revealPowerEnabled = false;
+let keepMatchedOpen = false;
+let soundEnabled = true;
+
+/* runtime state */
+let emojis = [];
+let cards = []; // shuffled
+let rows = 4, cols = 4;
+let moves = 0;
+let flipped = [];
+let matchedCount = 0;
+let errors = 0;
+let errorLimit = 12;
+let startTime = null;
+let timerInterval = null;
+let score = 0;
+let gameActive = false;
+let matchStreak = 0; // for combo bonus
+let revealUsed = false;
+let campaignStage = null; // track campaign progress
+
+/* DOM */
+const menu = document.getElementById('menu');
+const startBtn = document.getElementById('startBtn');
+const difficultySelect = document.getElementById('difficultySelect');
+const themeSelect = document.getElementById('themeSelect');
+const cardSetSelect = document.getElementById('cardSetSelect');
+const backgroundSelect = document.getElementById('backgroundSelect');
+
+const timeLimitToggle = document.getElementById('timeLimitToggle');
+const timeLimitSecondsInput = document.getElementById('timeLimitSeconds');
+const moveLimitToggle = document.getElementById('moveLimitToggle');
+const moveLimitCountInput = document.getElementById('moveLimitCount');
+const campaignToggle = document.getElementById('campaignToggle');
+const comboToggle = document.getElementById('comboToggle');
+const revealPowerToggle = document.getElementById('revealPowerToggle');
+const keepMatchedToggle = document.getElementById('keepMatchedToggle');
+const soundToggle = document.getElementById('soundToggle');
+
+const gameArea = document.getElementById('game-area');
+const gameBoard = document.getElementById('game-board');
+const movesEl = document.getElementById('moves');
+const timeEl = document.getElementById('time');
+const scoreEl = document.getElementById('score');
+const errorsEl = document.getElementById('errors');
+const limitTag = document.getElementById('limitTag');
+const messageEl = document.getElementById('message');
+const restartBtnEl = document.getElementById('restartBtn');
+const menuBtn = document.getElementById('menuBtn');
+const viewScoresBtn = document.getElementById('viewScoresBtn');
+const scoresPanel = document.getElementById('scoresPanel');
+const scoresList = document.getElementById('scoresList');
+const closeScoresBtn = document.getElementById('closeScoresBtn');
+const creditsBtn = document.getElementById('creditsBtn');
+const creditsPanel = document.getElementById('creditsPanel');
+const closeCreditsBtn = document.getElementById('closeCreditsBtn');
+const confettiCanvas = document.getElementById('confettiCanvas');
+const revealBtn = document.getElementById('revealBtn');
+
+/* High scores key */
+const HS_KEY = 'memory_game_highscores_v2';
+
+/* =========================
+   Utility Functions
+   ========================= */
+function shuffle(array){
+  for(let i=array.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [array[i],array[j]] = [array[j],array[i]];
+  }
+}
+function formatTime(secs){
+  const s = Math.floor(secs%60);
+  const m = Math.floor(secs/60);
+  return m>0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+/* =========================
+   Sound helper (WebAudio)
+   ========================= */
+const audioCtx = (typeof AudioContext !== 'undefined') ? new AudioContext() : null;
+function playTone(freq=440, duration=0.08, type='sine'){
+  if(!soundEnabled || !audioCtx) return;
+  try{
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type;
+    o.frequency.value = freq;
+    o.connect(g);
+    g.connect(audioCtx.destination);
+    g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.2, audioCtx.currentTime + 0.01);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+    setTimeout(()=> { try{ o.stop(); o.disconnect(); g.disconnect(); }catch(e){} }, duration*1000 + 30);
+  }catch(e){ /* ignore */ }
+}
+function playSound(type){
+  if(!soundEnabled) return;
+  if(type === 'flip') playTone(800, 0.04, 'sine');
+  else if(type === 'match') playTone(1200, 0.08, 'sawtooth');
+  else if(type === 'mismatch') playTone(240, 0.10, 'triangle');
+  else if(type === 'gameover') playTone(160, 0.28, 'sine');
+  else if(type === 'win') { playTone(1500,0.06); setTimeout(()=> playTone(1200,0.06),80); }
+}
+
+/* Auto resume audio context on first interaction */
+document.addEventListener('pointerdown', ()=> audioCtx?.resume(), {once:true});
+
+/* =========================
+   Menu & Theme Handlers
+   ========================= */
+difficultySelect.addEventListener('change', e=>{
+  selectedDifficulty = e.target.value;
+});
+themeSelect.addEventListener('change', e=>{
+  selectedTheme = e.target.value;
+});
+cardSetSelect.addEventListener('change', e=>{
+  selectedCardSet = e.target.value;
+});
+backgroundSelect.addEventListener('change', e=>{
+  selectedBackground = e.target.value;
+  document.body.style.background = BACKGROUNDS[selectedBackground] || BACKGROUNDS.dark;
+});
+
+timeLimitToggle.addEventListener('change', (e)=> {
+  timeLimitEnabled = e.target.checked;
+});
+timeLimitSecondsInput.addEventListener('change', (e)=> {
+  const v = parseInt(e.target.value) || 0;
+  timeLimitSeconds = Math.max(5, v);
+  timeLimitSecondsInput.value = timeLimitSeconds;
+});
+
+moveLimitToggle.addEventListener('change', (e)=> {
+  moveLimitEnabled = e.target.checked;
+});
+moveLimitCountInput.addEventListener('change', (e)=> {
+  const v = parseInt(e.target.value) || 0;
+  moveLimitCount = Math.max(1, v);
+  moveLimitCountInput.value = moveLimitCount;
+});
+
+campaignToggle.addEventListener('change', (e)=> { campaignEnabled = e.target.checked; });
+comboToggle.addEventListener('change', (e)=> { comboEnabled = e.target.checked; });
+revealPowerToggle.addEventListener('change', (e)=> { revealPowerEnabled = e.target.checked; updateRevealBtn(); });
+keepMatchedToggle.addEventListener('change', (e)=> { keepMatchedOpen = e.target.checked; });
+soundToggle.addEventListener('change', (e)=> { soundEnabled = e.target.checked; });
+
+startBtn.addEventListener('click', ()=> {
+  selectedDifficulty = difficultySelect.value;
+  selectedTheme = themeSelect.value;
+  selectedCardSet = cardSetSelect.value;
+  selectedBackground = backgroundSelect.value;
+  timeLimitEnabled = timeLimitToggle.checked;
+  timeLimitSeconds = Math.max(5, parseInt(timeLimitSecondsInput.value) || 60);
+  moveLimitEnabled = moveLimitToggle.checked;
+  moveLimitCount = Math.max(1, parseInt(moveLimitCountInput.value) || 40);
+  campaignEnabled = campaignToggle.checked;
+  comboEnabled = comboToggle.checked;
+  revealPowerEnabled = revealPowerToggle.checked;
+  keepMatchedOpen = keepMatchedToggle.checked;
+  soundEnabled = soundToggle.checked;
+  startGame(selectedDifficulty, selectedTheme);
+});
+
+viewScoresBtn.addEventListener('click', ()=> {
+  showScoresPanel();
+});
+closeScoresBtn.addEventListener('click', ()=> {
+  scoresPanel.style.display='none';
+});
+creditsBtn.addEventListener('click', ()=> {
+  creditsPanel.style.display='block';
+});
+closeCreditsBtn.addEventListener('click', ()=> {
+  creditsPanel.style.display='none';
+});
+
+/* =========================
+   Start / Setup Game
+   ========================= */
+function startGame(difficulty='easy', theme='green'){
+  selectedDifficulty = difficulty;
+  selectedTheme = theme;
+  const config = DIFFICULTIES[difficulty];
+  rows = config.rows; cols = config.cols;
+  errorLimit = config.errorLimit;
+
+  // ARIA grid boyutları
+  gameBoard.setAttribute('aria-rowcount', String(rows));
+  gameBoard.setAttribute('aria-colcount', String(cols));
+  gameBoard.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+  const pairs = (rows*cols)/2;
+  let pool = [];
+  if(selectedCardSet === 'default') pool = [...EMOJI_SETS.default];
+  else if(selectedCardSet === 'animals') pool = [...EMOJI_SETS.animals];
+  else if(selectedCardSet === 'space') pool = [...EMOJI_SETS.space];
+  else pool = [...EMOJI_SETS.retro];
+
+  if(pool.length < pairs){
+    pool = [...new Set([...pool, ...EMOJI_SETS.default, ...EMOJI_SETS.animals])];
+  }
+  shuffle(pool);
+  emojis = pool.slice(0, pairs);
+
+  cards = [...emojis, ...emojis];
+  shuffle(cards);
+
+  moves = 0; flipped=[]; matchedCount=0; errors=0; score=0; matchStreak=0; revealUsed=false;
+  movesEl.textContent = `Moves: ${moves}`;
+  errorsEl.textContent = `Errors: ${errors}`;
+  scoreEl.textContent = `Score: ${score}`;
+  limitTag.textContent = timeLimitEnabled ? `Time Limit: ${timeLimitSeconds}s` : (moveLimitEnabled ? `Move Limit: ${moveLimitCount}` : `Limit: —`);
+  messageEl.textContent = '';
+
+  applyTheme(selectedTheme);
+  createCards();
+
+  document.body.style.background = BACKGROUNDS[selectedBackground] || BACKGROUNDS.dark;
+
+  menu.style.display = 'none';
+  gameArea.style.display = 'block';
+
+  startTimer();
+
+  gameActive = true;
+  campaignStage = campaignEnabled ? difficulty : null;
+  updateRevealBtn();
+  playSound('flip');
+
+  // İlk karta odak (klavye erişimi için)
+  requestAnimationFrame(()=>{
+    const first = gameBoard.querySelector('.card');
+    first?.focus();
+  });
+}
+
+function applyTheme(theme){
+  const backEls = document.querySelectorAll('.card-back');
+  backEls.forEach(el => {
+    el.style.background = (theme === 'retro') ? THEME_BACK_COLORS.retro : THEME_BACK_COLORS[theme] || THEME_BACK_COLORS.green;
+    el.style.color = '#012';
+  });
+}
+
+/* =========================
+   Accessibility helpers
+   ========================= */
+function setCardAriaLabel(cardEl){
+  const emoji = cardEl.dataset.emoji;
+  if(cardEl.classList.contains('matched')){
+    cardEl.setAttribute('aria-label', `${emoji} matched`);
+  } else if(cardEl.classList.contains('flipped')){
+    cardEl.setAttribute('aria-label', `${emoji} face up`);
+  } else {
+    cardEl.setAttribute('aria-label', `Face down card`);
+  }
+}
+
+/* Klavye navigasyonu: ok tuşlarıyla grid içinde gez */
+function focusNeighbor(currentIdx, dRow, dCol){
+  const r = Math.floor(currentIdx/cols), c = currentIdx%cols;
+  const nr = r + dRow, nc = c + dCol;
+  if(nr<0 || nc<0 || nr>=rows || nc>=cols) return;
+  const next = gameBoard.querySelector(`.card[data-index="${nr*cols+nc}"]`);
+  next?.focus();
+}
+
+function createCards(){
+  gameBoard.innerHTML = '';
+  for(let i=0;i<cards.length;i++){
+    const emoji = cards[i];
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.emoji = emoji;
+    card.dataset.index = i;
+
+    // ARIA + klavye
+    card.setAttribute('role','gridcell');
+    card.setAttribute('aria-label','Face down card');
+    card.tabIndex = 0; // focusable
+
+    const inner = document.createElement('div');
+    inner.className = 'card-inner';
+
+    const front = document.createElement('div');
+    front.className = 'card-front';
+    front.innerHTML = `<div style="opacity:0.06;font-size:1.6rem">❖</div>`;
+
+    const back = document.createElement('div');
+    back.className = 'card-back';
+    back.innerText = emoji;
+
+    if(selectedTheme==='retro') back.style.background = THEME_BACK_COLORS.retro;
+    else back.style.background = THEME_BACK_COLORS[selectedTheme] || THEME_BACK_COLORS.green;
+
+    inner.appendChild(front);
+    inner.appendChild(back);
+    card.appendChild(inner);
+
+    // Mouse/touch
+    card.addEventListener('click', onCardClick, {passive:true});
+    card.addEventListener('touchstart', onCardClick, {passive:true});
+
+    // Klavye: Enter/Space flip, oklar ile gezin
+    card.addEventListener('keydown', (ev)=>{
+      const key = ev.key;
+      const idx = Number(card.dataset.index);
+      if(key === ' ' || key === 'Enter'){
+        ev.preventDefault();
+        onCardClick({ currentTarget: card }); // sentetik çağrı
+        return;
+      }
+      if(key === 'ArrowRight'){ ev.preventDefault(); focusNeighbor(idx, 0, +1); }
+      else if(key === 'ArrowLeft'){ ev.preventDefault(); focusNeighbor(idx, 0, -1); }
+      else if(key === 'ArrowDown'){ ev.preventDefault(); focusNeighbor(idx, +1, 0); }
+      else if(key === 'ArrowUp'){ ev.preventDefault(); focusNeighbor(idx, -1, 0); }
+      else if(key.toLowerCase() === 'home'){ ev.preventDefault(); gameBoard.querySelector('.card[data-index="0"]')?.focus(); }
+      else if(key.toLowerCase() === 'end'){ ev.preventDefault(); gameBoard.querySelector(`.card[data-index="${rows*cols-1}"]`)?.focus(); }
+    });
+
+    gameBoard.appendChild(card);
+  }
+}
+
+/* =========================
+   Timer & Scoring
+   ========================= */
+function startTimer(){
+  startTime = Date.now();
+  if(timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(()=>{
+    const elapsed = Math.floor((Date.now()-startTime)/1000);
+    timeEl.textContent = `Time: ${formatTime(elapsed)}`;
+
+    if(timeLimitEnabled){
+      const remaining = timeLimitSeconds - elapsed;
+      limitTag.textContent = `Time Left: ${remaining}s`;
+      if(remaining <= 0){
+        endGame(false, 'timeLimit');
+      }
+    }
+  }, 300);
+}
+function stopTimer(){
+  if(timerInterval) clearInterval(timerInterval);
+  timerInterval = null;
+}
+
+function computeScore(final=false){
+  const base = (matchedCount/2) * 50;
+  const seconds = startTime ? Math.floor((Date.now()-startTime)/1000) : 0;
+  const timeBonus = Math.max(0, 300 - seconds);
+  const penalty = errors * 10;
+  let comboBonus = 0;
+  if(comboEnabled){
+    comboBonus = matchStreak * 15;
+  }
+  const current = Math.max(0, base + timeBonus + comboBonus - penalty);
+  if(final){
+    const moveBonus = Math.max(0, 100 - (moves*2));
+    return Math.max(0, base + timeBonus + comboBonus + moveBonus - penalty);
+  }
+  return current;
+}
+
+/* =========================
+   Card Click / Match Logic
+   ========================= */
+let inputLock = false;
+function onCardClick(e){
+  if(!gameActive || inputLock) return;
+  const card = e?.currentTarget || e?.target?.closest?.('.card');
+  if(!card) return;
+  if(card.classList.contains('flipped') || card.classList.contains('matched')) return;
+  if(flipped.length >= 2) return;
+
+  card.classList.add('flipped');
+  setCardAriaLabel(card);
+  flipped.push(card);
+  playSound('flip');
+
+  card.querySelector('.card-inner').style.transition = 'transform 220ms cubic-bezier(.2,.9,.3,1)';
+  setTimeout(()=> card.querySelector('.card-inner').style.transition = '', 250);
+
+  if(flipped.length === 2){
+    moves++;
+    movesEl.textContent = `Moves: ${moves}`;
+    if(moveLimitEnabled && moves >= moveLimitCount){
+      setTimeout(()=> endGame(false, 'moveLimit'), 500);
+    }
+    inputLock = true;
+    setTimeout(()=>{ checkMatch(); inputLock = false; }, 420);
+  }
+}
+
+function checkMatch(){
+  const [a,b] = flipped;
+  if(!a || !b) { flipped = []; return; }
+  const same = a.dataset.emoji === b.dataset.emoji;
+  if(same){
+    a.classList.add('matched');
+    b.classList.add('matched');
+
+    matchedCount += 2;
+    matchStreak++;
+
+    a.querySelector('.card-inner').style.boxShadow = '0 12px 34px rgba(255,255,255,0.08)';
+    b.querySelector('.card-inner').style.boxShadow = '0 12px 34px rgba(255,255,255,0.08)';
+    setTimeout(()=> {
+      a.querySelector('.card-inner').style.boxShadow = '';
+      b.querySelector('.card-inner').style.boxShadow = '';
+    }, 700);
+
+    let matchPoints = 50;
+    if(comboEnabled && matchStreak > 1) matchPoints += (matchStreak - 1) * 10;
+    score += matchPoints;
+    scoreEl.textContent = `Score: ${score}`;
+    playSound('match');
+
+    // ARIA güncelle
+    setCardAriaLabel(a);
+    setCardAriaLabel(b);
+
+    if(!keepMatchedOpen){
+      setTimeout(()=>{
+        a.classList.remove('flipped');
+        b.classList.remove('flipped');
+        // yüz aşağı dönünce de aria-label güncelle
+        setCardAriaLabel(a);
+        setCardAriaLabel(b);
+      }, 550);
+    }
+
+    flipped = [];
+
+    if(matchedCount === cards.length){
+      endGame(true);
+    }
+  } else {
+    // mismatch
+    errors++;
+    errorsEl.textContent = `Errors: ${errors}`;
+    matchStreak = 0;
+
+    [a,b].forEach(card=>{
+      card.querySelector('.card-inner').style.transition = 'transform 120ms';
+      card.classList.add('shake');
+      setTimeout(()=> card.classList.remove('shake'), 260);
+    });
+
+    setTimeout(()=>{
+      a.classList.remove('flipped');
+      b.classList.remove('flipped');
+      flipped = [];
+      // ARIA: tekrar kapandı
+      setCardAriaLabel(a);
+      setCardAriaLabel(b);
+    }, 700);
+
+    if(errors >= errorLimit){
+      setTimeout(()=> endGame(false, 'errorLimit'), 800);
+    }
+
+    score = Math.max(0, score - 10);
+    scoreEl.textContent = `Score: ${score}`;
+    playSound('mismatch');
+  }
+}
+
+/* =========================
+   End Game (win/lose) & High Scores
+   ========================= */
+function endGame(won, reason='win'){
+  gameActive = false;
+  stopTimer();
+
+  const finalScore = computeScore(true) + score;
+  score = Math.max(0, Math.round(finalScore));
+  scoreEl.textContent = `Score: ${score}`;
+
+  if(won){
+    const elapsed = startTime ? Math.floor((Date.now()-startTime)/1000) : 0;
+    messageEl.innerHTML = `🎉 <strong>Congratulations!</strong> You finished in ${moves} moves and ${formatTime(elapsed)}.`;
+    launchConfetti();
+    playSound('win');
+
+    saveHighScore({score: score, moves, time: Math.floor((Date.now()-startTime)/1000), difficulty:selectedDifficulty, date: new Date().toISOString()});
+
+    if(campaignEnabled && campaignStage){
+      if(campaignStage === 'easy'){
+        setTimeout(()=> {
+          messageEl.innerHTML += `<br/><em>Campaign: advancing to Medium...</em>`;
+          selectedDifficulty = 'medium';
+          startGame('medium', selectedTheme);
+        }, 1400);
+        return;
+      } else if(campaignStage === 'medium'){
+        setTimeout(()=> {
+          messageEl.innerHTML += `<br/><em>Campaign: advancing to Hard...</em>`;
+          selectedDifficulty = 'hard';
+          startGame('hard', selectedTheme);
+        }, 1400);
+        return;
+      } else if(campaignStage === 'hard'){
+        messageEl.innerHTML += `<br/><em>Campaign complete! Great job.</em>`;
+      }
+    }
+  } else {
+    if(reason === 'errorLimit'){
+      messageEl.innerHTML = `☠️ Game Over — you exceeded the error limit (${errorLimit}).`;
+    } else if(reason === 'timeLimit'){
+      messageEl.innerHTML = `⏰ Time's up — you ran out of time (${timeLimitSeconds}s).`;
+    } else if(reason === 'moveLimit'){
+      messageEl.innerHTML = `♟️ Move limit reached (${moveLimitCount} moves).`;
+    } else {
+      messageEl.innerHTML = `Game Over.`;
+    }
+    gameBoard.style.transition = 'box-shadow 200ms';
+    gameBoard.style.boxShadow = '0 6px 30px rgba(255,0,0,0.12)';
+    setTimeout(()=> gameBoard.style.boxShadow = '', 900);
+    playSound('gameover');
+  }
+}
+
+function saveHighScore(entry){
+  try{
+    const raw = localStorage.getItem(HS_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    list.push(entry);
+    list.sort((a,b)=> b.score - a.score);
+    const trimmed = list.slice(0,10);
+    localStorage.setItem(HS_KEY, JSON.stringify(trimmed));
+    renderScores();
+  }catch(e){
+    console.warn('HS save failed', e);
+  }
+}
+function showScoresPanel(){
+  renderScores();
+  scoresPanel.style.display = 'block';
+}
+function renderScores(){
+  scoresList.innerHTML = '';
+  const raw = localStorage.getItem(HS_KEY);
+  const list = raw ? JSON.parse(raw) : [];
+  if(list.length === 0){
+    scoresList.innerHTML = `<div class="muted center" style="padding:18px">No scores yet — finish a game to add one.</div>`;
+    return;
+  }
+  list.forEach((row,i)=>{
+    const r = document.createElement('div');
+    r.className = 'score-row';
+    r.innerHTML = `<div><strong>#${i+1}</strong> <small>${row.difficulty}</small></div>
+                   <div style="text-align:right"><div><strong>${row.score}</strong></div><small>${row.moves} moves • ${formatTime(row.time)}</small></div>`;
+    scoresList.appendChild(r);
+  });
+}
+
+restartBtnEl.addEventListener('click', ()=>{
+  startGame(selectedDifficulty, selectedTheme);
+});
+
+menuBtn.addEventListener('click', ()=>{
+  stopTimer();
+  gameActive = false;
+  gameArea.style.display = 'none';
+  menu.style.display = 'flex';
+  messageEl.textContent = '';
+});
+
+/* Reveal All power-up logic */
+function updateRevealBtn(){
+  if(!revealPowerEnabled){
+    revealBtn.style.display = 'none';
+    return;
+  }
+  revealBtn.style.display = 'inline-block';
+  revealBtn.classList.toggle('disabled', revealUsed || !gameActive);
+  revealBtn.textContent = revealUsed ? 'Reveal (used)' : 'Reveal';
+}
+revealBtn.addEventListener('click', ()=>{
+  if(!revealPowerEnabled || revealUsed || !gameActive) return;
+  revealUsed = true;
+  const all = Array.from(document.querySelectorAll('.card:not(.matched)'));
+  all.forEach(c => c.classList.add('flipped'));
+  playSound('flip');
+  updateRevealBtn();
+  setTimeout(()=> {
+    all.forEach(c => {
+      if(!c.classList.contains('matched')) c.classList.remove('flipped');
+      setCardAriaLabel(c);
+    });
+  }, 3000);
+});
+
+/* Confetti Implementation */
+const confetti = {
+  ctx: confettiCanvas.getContext('2d'),
+  pieces: [],
+  running:false,
+  resize(){
+    confettiCanvas.width = window.innerWidth * devicePixelRatio;
+    confettiCanvas.height = window.innerHeight * devicePixelRatio;
+    confettiCanvas.style.width = window.innerWidth + 'px';
+    confettiCanvas.style.height = window.innerHeight + 'px';
+    confetti.ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  },
+  spawn(count=80){
+    confetti.pieces = [];
+    const w = window.innerWidth, h = window.innerHeight;
+    for(let i=0;i<count;i++){
+      confetti.pieces.push({
+        x: Math.random()*w,
+        y: Math.random()*-h*0.5,
+        size: 6 + Math.random()*8,
+        wobble: Math.random()*100,
+        speed: 1 + Math.random()*4,
+        angle: Math.random()*Math.PI*2,
+        color: ['#ffd166','#06d6a0','#118ab2','#ef476f','#a78bfa'][Math.floor(Math.random()*5)],
+        tilt: Math.random()*0.5
+      });
+    }
+    confetti.running = true;
+    confetti.loop();
+  },
+  loop(){
+    if(!confetti.running) return;
+    const ctx = confetti.ctx;
+    ctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height);
+    confetti.pieces.forEach(p=>{
+      p.x += Math.cos(p.angle) * p.speed;
+      p.y += Math.sin(p.angle+0.3) * p.speed + 1;
+      p.angle += 0.02;
+      p.wobble += 0.1;
+
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(Math.sin(p.wobble)*0.2);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size*0.6);
+      ctx.restore();
+    });
+    confetti.pieces = confetti.pieces.filter(p => p.y < window.innerHeight + 200);
+    if(confetti.pieces.length === 0){
+      confetti.running = false;
+      ctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height);
+      return;
+    }
+    requestAnimationFrame(confetti.loop);
+  }
+};
+function launchConfetti(){ confetti.resize(); confetti.spawn(90); }
+window.addEventListener('resize', ()=> { if(confetti) confetti.resize(); });
+
+/* Init */
+renderScores();
+confetti.resize();
+updateRevealBtn();
+
+document.addEventListener('gesturestart', (e)=> e.preventDefault());
+</script>
+
+</body>
+</html>
